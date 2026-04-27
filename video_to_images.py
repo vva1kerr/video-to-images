@@ -12,46 +12,53 @@ then copy & paste path name in terminal
 
 
 # Importing all necessary libraries
+import argparse
 import cv2
 import os
 from tqdm import tqdm
 
+parser = argparse.ArgumentParser(
+    description='Extract frames from a video at a set interval and save them as JPGs on the Desktop.',
+    epilog=(
+        'Examples:\n'
+        '  python video_to_images.py\n'
+        '  python video_to_images.py --file ~/Desktop/video.mp4 --seconds 5 --show DBZ --ep 1'
+    ),
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+)
+parser.add_argument('--file',    metavar='PATH',   help='path to the video file')
+parser.add_argument('--seconds', metavar='N', type=int, help='interval between screenshots in seconds')
+parser.add_argument('--show',    metavar='NAME',   help='show name (used in output folder and filenames)')
+parser.add_argument('--ep',      metavar='N',      help='episode number (used in output folder and filenames)')
+args = parser.parse_args()
+
+filename = args.file    or input('--> input file path: ')
+sec      = args.seconds or int(input('--> input seconds: '))
+show     = args.show    or input('--> input show name: ')
+ep       = args.ep      or input('--> input episode number: ')
+
 # Read the video from specified path
-filename = input('--> input file path: ')
-vid = cv2.VideoCapture(filename) # e.x. /Users/walkerhutchinson/Desktop/Dragon Ball Z/dbz 1.mp4
-# Getting second
-sec = int(input('--> input seconds: '))
+filename = os.path.expanduser(filename)
+vid = cv2.VideoCapture(filename)
+if not vid.isOpened():
+    print(f'Error: could not open video file: {filename}')
+    exit(1)
 # Getting fps
 fps = vid.get(cv2.CAP_PROP_FPS)
-# Skip frames number
-skip_frames = sec*fps
+# Skip frames number (integer so modulo works reliably)
+skip_frames = round(sec * fps)
 
-# # creating a folder named data
-# save_path = f'C:/Users/{os.getlogin()}/Desktop/Images from video'
-# if not os.path.exists(save_path):
-#     os.makedirs(save_path)
-
-# creating a folder named data
-show = "p"
-ep = "1"
-save_path = f'Desktop/Images from {show}-ep{ep}'
+# creating a folder on the Desktop
+save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'Images from {show}-ep{ep}')
 if not os.path.exists(save_path):
-    # print("path does not exist")
     os.makedirs(save_path)
 
 # total frame in file
 cap = cv2.VideoCapture(filename)
 total_frame_length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-# print("total_frame_length: ", total_frame_length)
-
-# frame
-current_frame = 2400
-
-# frame to time
 
 past_second = -1
 for current_frame in tqdm(range(total_frame_length)):
-# while (True):
 
     # reading from frame
     ret, frame = vid.read()
@@ -59,41 +66,22 @@ for current_frame in tqdm(range(total_frame_length)):
     # if video is still left continue creating images
     if ret:
         # Skipping by second
-        if (current_frame - 1) % skip_frames == 0:
+        if current_frame % skip_frames == 0:
 
-            frame_div_24 = str(current_frame / 24)
-            frame_div_24_a = str(frame_div_24).split(".")[0]
-            frame_div24a_div60 = int(frame_div_24_a) / 60
+            total_seconds = int(current_frame / fps)
+            minute = str(total_seconds // 60)
+            second = str(total_seconds % 60)
 
-            minute = str(frame_div24a_div60).split(".")[0]
-            f2460_back = str(frame_div24a_div60).split(".")[1][0:3]
-
-            if len(str(f2460_back)) == len(str(1)):
-                f2460_back = int(f2460_back) / 10
-            elif len(str(f2460_back)) == len(str(11)):
-                f2460_back = int(f2460_back) / 100
-            elif len(str(f2460_back)) == len(str(111)):
-                f2460_back = int(f2460_back) / 1000
-            else:
-                print("error")
-
-            second = 60 * float(f2460_back)
-            second = str(second).split(".")[0]
             if past_second == second:
                 second = second + "b"
             past_second = second
 
             timestr = "min" + minute + "-" + "sec" + str(second)
-            name = f'{save_path}/' + f'{show}-' + f'ep{ep}-' + timestr + '.jpg'
+            name = f'{save_path}/{show}-ep{ep}-{timestr}.jpg'
             print('Creating...' + name)
 
             # writing the extracted images
             cv2.imwrite(name, frame)
-
-        # increasing counter so that it will
-        # show how many frames are created
-        current_frame += 1
-        # os.system('clear') #on Linux System
     else:
         break
 
